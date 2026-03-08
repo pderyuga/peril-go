@@ -1,6 +1,7 @@
 package pubsub
 
 import (
+	"encoding/json"
 	"fmt"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -12,6 +13,47 @@ const (
 	QueueTypeDurable   SimpleQueueType = "durable"
 	QueueTypeTransient SimpleQueueType = "transient"
 )
+
+func SubscribeJSON[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType,
+	handler func(T),
+) error {
+	channel, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
+	if err != nil {
+		return fmt.Errorf("could not subscribe to %s: %v", queueName, err)
+	}
+
+	msgs, err := channel.Consume(queue.Name, "", false, false, false, false, nil)
+	if err != nil {
+		return fmt.Errorf("could not consume messages: %v", err)
+	}
+
+	unmarshaller := func(data []byte) (T, error) {
+		out := new(T)
+		err := json.Unmarshal(data, &out)
+		return *out, err
+	}
+
+	go func() {
+		for msg := range msgs {
+			out, err := unmarshaller(msg.Body)
+			if err != nil {
+				fmt.Printf("error unmarshalling message: %v\n", err)
+			}
+			handler(out)
+			err = msg.Ack(false)
+			if err != nil {
+				fmt.Printf("error acknowledging message: %v\n", err)
+			}
+		}
+	}()
+
+	return nil
+}
 
 func DeclareAndBind(
 	conn *amqp.Connection,
