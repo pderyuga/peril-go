@@ -60,6 +60,7 @@ func main() {
 			os.Exit(0)
 		default:
 			fmt.Println("Command not recognized")
+			continue
 		}
 	}
 }
