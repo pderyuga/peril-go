@@ -14,13 +14,21 @@ const (
 	QueueTypeTransient SimpleQueueType = "transient"
 )
 
+type AckType string
+
+const (
+	Ack         AckType = "Ack"
+	NackRequeue AckType = "Nack and requeue"
+	NackDiscard AckType = "Nack and discard"
+)
+
 func SubscribeJSON[T any](
 	conn *amqp.Connection,
 	exchange,
 	queueName,
 	key string,
 	queueType SimpleQueueType,
-	handler func(T),
+	handler func(T) AckType,
 ) error {
 	channel, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
 	if err != nil {
@@ -44,10 +52,17 @@ func SubscribeJSON[T any](
 			if err != nil {
 				fmt.Printf("error unmarshalling message: %v\n", err)
 			}
-			handler(out)
-			err = msg.Ack(false)
-			if err != nil {
-				fmt.Printf("error acknowledging message: %v\n", err)
+			ackType := handler(out)
+			switch ackType {
+			case Ack:
+				msg.Ack(false)
+				fmt.Println("Message acked!")
+			case NackRequeue:
+				msg.Nack(false, true)
+				fmt.Println("Message nacked and requeued!")
+			case NackDiscard:
+				msg.Nack(false, false)
+				fmt.Println("Message nacked and discarded!")
 			}
 		}
 	}()
