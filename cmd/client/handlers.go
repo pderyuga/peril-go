@@ -37,12 +37,13 @@ func handlerMove(gs *gamelogic.GameState, ch *amqp.Channel) func(gamelogic.ArmyM
 			)
 			if err != nil {
 				fmt.Println("Error publishing recognition of war:", err)
+				return pubsub.NackRequeue
 			}
-			return pubsub.NackRequeue
+			return pubsub.Ack
 		case gamelogic.MoveOutcomeSamePlayer:
 			return pubsub.NackDiscard
 		}
-		
+
 		fmt.Println("error: unknown move outcome:", moveOutcome)
 		return pubsub.NackDiscard
 	}
