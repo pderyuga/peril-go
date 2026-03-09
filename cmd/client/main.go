@@ -45,9 +45,20 @@ func main() {
 		fmt.Sprintf("%s.%s", routing.ArmyMovesPrefix, username), // queue name
 		fmt.Sprintf("%s.*", routing.ArmyMovesPrefix),            // routing key
 		pubsub.QueueTypeTransient,                               // queue type "transient" or "durable"
-		handlerMove(gs))
+		handlerMove(gs, publishCh))
 	if err != nil {
 		log.Fatalf("could not subscribe to move: %v", err)
+	}
+
+	err = pubsub.SubscribeJSON(
+		conn,                          // connection
+		routing.ExchangePerilTopic,    // exchange
+		routing.WarRecognitionsPrefix, // queue name
+		fmt.Sprintf("%s.*", routing.WarRecognitionsPrefix), // routing key
+		pubsub.QueueTypeDurable,                            // queue type "transient" or "durable"
+		handlerWar(gs))
+	if err != nil {
+		log.Fatalf("could not subscribe to war: %v", err)
 	}
 
 	for {
