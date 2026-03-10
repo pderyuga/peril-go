@@ -30,20 +30,67 @@ func SubscribeJSON[T any](
 	queueType SimpleQueueType,
 	handler func(T) AckType,
 ) error {
+	unmarshaller := func(data []byte) (T, error) {
+		out := new(T)
+		err := json.Unmarshal(data, &out)
+		return *out, err
+	}
+
+	return subscribe(
+		conn,
+		exchange,
+		queueName,
+		key,
+		queueType,
+		handler,
+		unmarshaller,
+	)
+}
+
+func SubscribeGob[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType,
+	handler func(T) AckType,
+) error {
+	return subscribe(
+		conn,
+		exchange,
+		queueName,
+		key,
+		queueType,
+		handler,
+		decode,
+	)
+}
+
+func subscribe[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType,
+	handler func(T) AckType,
+	unmarshaller func([]byte) (T, error),
+) error {
 	channel, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
 	if err != nil {
 		return fmt.Errorf("could not subscribe to %s: %v", queueName, err)
 	}
 
-	msgs, err := channel.Consume(queue.Name, "", false, false, false, false, nil)
+	msgs, err := channel.Consume(
+		queue.Name, // queue
+		"",         // consumer
+		false,      // auto-ack
+		false,      // exclusive
+		false,      // no-local
+		false,      // no-wait
+		nil,        // args
+	)
 	if err != nil {
 		return fmt.Errorf("could not consume messages: %v", err)
-	}
-
-	unmarshaller := func(data []byte) (T, error) {
-		out := new(T)
-		err := json.Unmarshal(data, &out)
-		return *out, err
 	}
 
 	go func() {
