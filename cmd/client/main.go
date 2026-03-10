@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
@@ -97,7 +98,29 @@ func main() {
 		case "help":
 			gamelogic.PrintClientHelp()
 		case "spam":
-			fmt.Println("Spamming not allowed yet!")
+			if len(words) != 2 {
+				fmt.Println("usage: spam <number or messages>")
+				continue
+			}
+
+			n, err := strconv.Atoi(words[1])
+			if err != nil {
+				fmt.Printf("error: %s is not a valid number\n", words[1])
+			}
+
+			for range n {
+				maliciousLog := gamelogic.GetMaliciousLog()
+				err = publishGameLog(
+					publishCh,
+					username,
+					maliciousLog,
+				)
+				if err != nil {
+					fmt.Println("failed to publish log:", err)
+					continue
+				}
+			}
+			fmt.Printf("Published %v malicious logs\n", n)
 		case "quit":
 			gamelogic.PrintQuit()
 			os.Exit(0)
@@ -107,21 +130,18 @@ func main() {
 	}
 }
 
-func publishGameLog(ch *amqp.Channel, username, msg string) pubsub.AckType {
+func publishGameLog(ch *amqp.Channel, username, msg string) error {
 	gl := routing.GameLog{
 		CurrentTime: time.Now(),
 		Message:     msg,
 		Username:    username,
 	}
 
-	err := pubsub.PublishGob(
+	return pubsub.PublishGob(
 		ch,                         // channel
 		routing.ExchangePerilTopic, // exchange
 		fmt.Sprintf("%s.%s", routing.GameLogSlug, username), // key
 		gl,
 	)
-	if err != nil {
-		return pubsub.NackRequeue
-	}
-	return pubsub.Ack
+
 }

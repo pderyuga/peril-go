@@ -61,13 +61,25 @@ func handlerWar(gs *gamelogic.GameState, ch *amqp.Channel) func(gamelogic.Recogn
 			return pubsub.NackDiscard
 		case gamelogic.WarOutcomeOpponentWon:
 			log := fmt.Sprintf("%s won a war against %s", winner, loser)
-			return publishGameLog(ch, gs.GetUsername(), log)
+			err := publishGameLog(ch, gs.GetUsername(), log)
+			if err != nil {
+				return pubsub.NackRequeue
+			}
+			return pubsub.Ack
 		case gamelogic.WarOutcomeYouWon:
 			log := fmt.Sprintf("%s won a war against %s", winner, loser)
-			return publishGameLog(ch, gs.GetUsername(), log)
+			err := publishGameLog(ch, gs.GetUsername(), log)
+			if err != nil {
+				return pubsub.NackRequeue
+			}
+			return pubsub.Ack
 		case gamelogic.WarOutcomeDraw:
 			log := fmt.Sprintf("A war between %s and %s resulted in a draw", winner, loser)
-			return publishGameLog(ch, gs.GetUsername(), log)
+			err := publishGameLog(ch, gs.GetUsername(), log)
+			if err != nil {
+				return pubsub.NackRequeue
+			}
+			return pubsub.Ack
 		}
 
 		fmt.Println("Invalid war outcome:", warOutcome)
