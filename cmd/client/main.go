@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
@@ -56,7 +57,7 @@ func main() {
 		routing.WarRecognitionsPrefix, // queue name
 		fmt.Sprintf("%s.*", routing.WarRecognitionsPrefix), // routing key
 		pubsub.QueueTypeDurable,                            // queue type "transient" or "durable"
-		handlerWar(gs))
+		handlerWar(gs, publishCh))
 	if err != nil {
 		log.Fatalf("could not subscribe to war: %v", err)
 	}
@@ -104,4 +105,23 @@ func main() {
 			fmt.Println("Command not recognized")
 		}
 	}
+}
+
+func publishGameLog(ch *amqp.Channel, username, msg string) pubsub.AckType {
+	gl := routing.GameLog{
+		CurrentTime: time.Now(),
+		Message:     msg,
+		Username:    username,
+	}
+
+	err := pubsub.PublishGob(
+		ch,                         // channel
+		routing.ExchangePerilTopic, // exchange
+		fmt.Sprintf("%s.%s", routing.GameLogSlug, username), // key
+		gl,
+	)
+	if err != nil {
+		return pubsub.NackRequeue
+	}
+	return pubsub.Ack
 }

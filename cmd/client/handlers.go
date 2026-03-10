@@ -49,10 +49,10 @@ func handlerMove(gs *gamelogic.GameState, ch *amqp.Channel) func(gamelogic.ArmyM
 	}
 }
 
-func handlerWar(gs *gamelogic.GameState) func(gamelogic.RecognitionOfWar) pubsub.AckType {
+func handlerWar(gs *gamelogic.GameState, ch *amqp.Channel) func(gamelogic.RecognitionOfWar) pubsub.AckType {
 	return func(msg gamelogic.RecognitionOfWar) pubsub.AckType {
 		defer fmt.Print("> ")
-		warOutcome, _, _ := gs.HandleWar(msg)
+		warOutcome, winner, loser := gs.HandleWar(msg)
 
 		switch warOutcome {
 		case gamelogic.WarOutcomeNotInvolved:
@@ -60,11 +60,14 @@ func handlerWar(gs *gamelogic.GameState) func(gamelogic.RecognitionOfWar) pubsub
 		case gamelogic.WarOutcomeNoUnits:
 			return pubsub.NackDiscard
 		case gamelogic.WarOutcomeOpponentWon:
-			return pubsub.Ack
+			log := fmt.Sprintf("%s won a war against %s", winner, loser)
+			return publishGameLog(ch, gs.GetUsername(), log)
 		case gamelogic.WarOutcomeYouWon:
-			return pubsub.Ack
+			log := fmt.Sprintf("%s won a war against %s", winner, loser)
+			return publishGameLog(ch, gs.GetUsername(), log)
 		case gamelogic.WarOutcomeDraw:
-			return pubsub.Ack
+			log := fmt.Sprintf("A war between %s and %s resulted in a draw", winner, loser)
+			return publishGameLog(ch, gs.GetUsername(), log)
 		}
 
 		fmt.Println("Invalid war outcome:", warOutcome)
