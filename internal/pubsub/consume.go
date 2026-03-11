@@ -80,6 +80,11 @@ func subscribe[T any](
 		return fmt.Errorf("could not subscribe to %s: %v", queueName, err)
 	}
 
+	err = channel.Qos(10, 0, false)
+	if err != nil {
+		return fmt.Errorf("could not prefetch messages: %v", err)
+	}
+
 	msgs, err := channel.Consume(
 		queue.Name, // queue
 		"",         // consumer
